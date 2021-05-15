@@ -1,0 +1,166 @@
+Step 1
+第一步
+
+Append all the content below to file "C:\Users\YourName\Documents\ArduinoData\packages\esp32\hardware\esp32\1.0.6\boards.txt",start form # line, including # line
+在 C:\Users\YourName\Documents\ArduinoData\packages\esp32\hardware\esp32\1.0.6\boards.txt 末尾添加如下内容，从#开始，包括#
+ 
+ 
+##############################################################
+
+e1_mini.name=GAMEKIT E1 MINI
+
+e1_mini.upload.tool=esptool_py
+e1_mini.upload.maximum_size=1310720
+e1_mini.upload.maximum_data_size=327680
+e1_mini.upload.wait_for_upload_port=true
+
+e1_mini.serial.disableDTR=true
+e1_mini.serial.disableRTS=true
+
+e1_mini.build.mcu=esp32
+e1_mini.build.core=esp32
+e1_mini.build.variant=e1-mini
+e1_mini.build.board=E1-MINI
+
+e1_mini.build.f_cpu=240000000L
+e1_mini.build.flash_mode=dio
+e1_mini.build.flash_size=4MB
+e1_mini.build.boot=dio
+e1_mini.build.partitions=default
+e1_mini.build.defines=
+
+e1_mini.menu.FlashFreq.80=80MHz
+e1_mini.menu.FlashFreq.80.build.flash_freq=80m
+e1_mini.menu.FlashFreq.40=40MHz
+e1_mini.menu.FlashFreq.40.build.flash_freq=40m
+
+e1_mini.menu.PartitionScheme.default=Default
+e1_mini.menu.PartitionScheme.default.build.partitions=default
+e1_mini.menu.PartitionScheme.no_ota=No OTA (Large APP)
+e1_mini.menu.PartitionScheme.no_ota.build.partitions=no_ota
+e1_mini.menu.PartitionScheme.no_ota.upload.maximum_size=2097152
+e1_mini.menu.PartitionScheme.min_spiffs=Minimal SPIFFS (Large APPS with OTA)
+e1_mini.menu.PartitionScheme.min_spiffs.build.partitions=min_spiffs
+e1_mini.menu.PartitionScheme.min_spiffs.upload.maximum_size=1966080
+
+e1_mini.menu.CPUFreq.240=240MHz (WiFi/BT)
+e1_mini.menu.CPUFreq.240.build.f_cpu=240000000L
+e1_mini.menu.CPUFreq.160=160MHz (WiFi/BT)
+e1_mini.menu.CPUFreq.160.build.f_cpu=160000000L
+e1_mini.menu.CPUFreq.80=80MHz (WiFi/BT)
+e1_mini.menu.CPUFreq.80.build.f_cpu=80000000L
+e1_mini.menu.CPUFreq.40=40MHz (40MHz XTAL)
+e1_mini.menu.CPUFreq.40.build.f_cpu=40000000L
+e1_mini.menu.CPUFreq.26=26MHz (26MHz XTAL)
+e1_mini.menu.CPUFreq.26.build.f_cpu=26000000L
+e1_mini.menu.CPUFreq.20=20MHz (40MHz XTAL)
+e1_mini.menu.CPUFreq.20.build.f_cpu=20000000L
+e1_mini.menu.CPUFreq.13=13MHz (26MHz XTAL)
+e1_mini.menu.CPUFreq.13.build.f_cpu=13000000L
+e1_mini.menu.CPUFreq.10=10MHz (40MHz XTAL)
+e1_mini.menu.CPUFreq.10.build.f_cpu=10000000L
+
+e1_mini.menu.UploadSpeed.921600=921600
+e1_mini.menu.UploadSpeed.921600.upload.speed=921600
+e1_mini.menu.UploadSpeed.115200=115200
+e1_mini.menu.UploadSpeed.115200.upload.speed=115200
+e1_mini.menu.UploadSpeed.256000.windows=256000
+e1_mini.menu.UploadSpeed.256000.upload.speed=256000
+e1_mini.menu.UploadSpeed.230400.windows.upload.speed=256000
+e1_mini.menu.UploadSpeed.230400=230400
+e1_mini.menu.UploadSpeed.230400.upload.speed=230400
+e1_mini.menu.UploadSpeed.460800.linux=460800
+e1_mini.menu.UploadSpeed.460800.macosx=460800
+e1_mini.menu.UploadSpeed.460800.upload.speed=460800
+e1_mini.menu.UploadSpeed.512000.windows=512000
+e1_mini.menu.UploadSpeed.512000.upload.speed=512000
+
+Step 2
+第二步
+
+Create new Folder "C:\Users\YourName\Documents\ArduinoData\packages\esp32\hardware\esp32\1.0.6\variants\e1-mini"
+新建文件夹 “ C:\Users\YourName\Documents\ArduinoData\packages\esp32\hardware\esp32\1.0.6\variants\e1-mini”
+
+
+Create empty new file named pins_arduino.h , content as below:
+在新建文件夹e1-mini下，新建文件pins_arduino.h， 内容如下：
+
+#ifndef Pins_Arduino_h
+#define Pins_Arduino_h
+
+#include <stdint.h>
+
+#define EXTERNAL_NUM_INTERRUPTS 16
+#define NUM_DIGITAL_PINS        40
+#define NUM_ANALOG_INPUTS       16
+
+#define analogInputToDigitalPin(p)  (((p)<20)?(esp32_adc2gpio[(p)]):-1)
+#define digitalPinToInterrupt(p)    (((p)<40)?(p):-1)
+#define digitalPinHasPWM(p)         (p < 34)
+
+static const uint8_t LED_BUILTIN = 2;
+#define BUILTIN_LED  LED_BUILTIN // backward compatibility
+#define LED_BUILTIN LED_BUILTIN
+
+#define KEY_OK KEY_ENTER
+
+static const uint8_t TX = 1;
+static const uint8_t RX = 3;
+
+//I2C Pins
+static const uint8_t SDA = 21;
+static const uint8_t SCL = 22;
+
+//SPI Pins
+static const uint8_t SS    = 5;
+static const uint8_t MOSI  = 23;
+static const uint8_t MISO  = 19;
+static const uint8_t SCK   = 18;
+
+//Directional Pad Key Pins
+static const uint8_t DPAD_UP = 39;
+static const uint8_t DPAD_DOWN = 15;
+static const uint8_t DPAD_LEFT = 14;
+static const uint8_t DPAD_RIGHT = 13;
+static const uint8_t DPAD_CENTER = 36;
+
+//BUZZER Pin
+static const uint8_t BUZZER_BUILTIN = 12;
+
+static const uint8_t A0 = 36;
+static const uint8_t A3 = 39;
+static const uint8_t A4 = 32;
+static const uint8_t A5 = 33;
+static const uint8_t A6 = 34;
+static const uint8_t A7 = 35;
+static const uint8_t A10 = 4;
+static const uint8_t A11 = 0;
+static const uint8_t A12 = 2;
+static const uint8_t A13 = 15;
+static const uint8_t A14 = 13;
+static const uint8_t A15 = 12;
+static const uint8_t A16 = 14;
+static const uint8_t A17 = 27;
+static const uint8_t A18 = 25;
+static const uint8_t A19 = 26;
+
+//Touch Pins
+static const uint8_t T0 = 4;
+static const uint8_t T1 = 0;
+static const uint8_t T2 = 2;
+static const uint8_t T3 = 15;
+static const uint8_t T4 = 13;
+static const uint8_t T5 = 12;
+static const uint8_t T6 = 14;
+static const uint8_t T7 = 27;
+static const uint8_t T8 = 33;
+static const uint8_t T9 = 32;
+
+//Digital Analog Converter Pins
+static const uint8_t DAC1 = 25;
+static const uint8_t DAC2 = 26;
+
+#endif /* Pins_Arduino_h */
+
+Step 3: repeat Step 1 and Step 2 at Location "C:\Users\YourName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\1.0.6\"
+第三步：重复同样的动作到 C:\Users\YourName\AppData\Local\Arduino15\packages\esp32\hardware\esp32\1.0.6\
