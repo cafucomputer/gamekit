@@ -23,12 +23,29 @@
 
 #include <Wire.h>
 #include <Arduino.h>
-#include "E1-Tetris.h"
-
 #include "TetrisTheme.cpp"
 
+/*
+ * OLED COMMANDS
+ */
+#define OLED_ADDRESS               0x3C //you may need to change this, this is the OLED I2C address.
+#define OLED_COMMAND               0x80
+#define OLED_DATA                  0x40
+#define OLED_DISPLAY_OFF           0xAE
+#define OLED_DISPLAY_ON            0xAF
+#define OLED_NORMAL_DISPLAY        0xA6
+#define OLED_INVERSE_DISPLAY       0xA7
+#define OLED_SET_BRIGHTNESS        0x81
+#define OLED_SET_ADDRESSING        0x20
+#define OLED_HORIZONTAL_ADDRESSING 0x00
+#define OLED_VERTICAL_ADDRESSING   0x01
+#define OLED_PAGE_ADDRESSING       0x02
+#define OLED_SET_COLUMN            0x21
+#define OLED_SET_PAGE              0x22
+
+
 // the tetris blocks
-const byte Blocks[7][2] PROGMEM = {
+const byte Blocks[7][2] = {
 	{ 0B01000100, 0B01000100 },
 	{ 0B11000000, 0B01000100 },
 	{ 0B01100000, 0B01000100 },
@@ -40,18 +57,17 @@ const byte Blocks[7][2] PROGMEM = {
 
 // the numbers for score, To do: create letter fonts
 
-const byte NumberFont[10][8] PROGMEM = {
-
-	{ 0x00, 0x1c, 0x22, 0x26, 0x2a, 0x32, 0x22, 0x1c },
-	{ 0x00, 0x1c, 0x08, 0x08, 0x08, 0x08, 0x0c, 0x08 },
-	{ 0x00, 0x3e, 0x02, 0x04, 0x18, 0x20, 0x22, 0x1c },
-	{ 0x00, 0x1c, 0x22, 0x20, 0x18, 0x20, 0x22, 0x1c },
-	{ 0x00, 0x10, 0x10, 0x3e, 0x12, 0x14, 0x18, 0x10 },
-	{ 0x00, 0x1c, 0x22, 0x20, 0x20, 0x1e, 0x02, 0x3e },
-	{ 0x00, 0x1c, 0x22, 0x22, 0x1e, 0x02, 0x04, 0x18 },
-	{ 0x00, 0x04, 0x04, 0x04, 0x08, 0x10, 0x20, 0x3e },
-	{ 0x00, 0x1c, 0x22, 0x22, 0x1c, 0x22, 0x22, 0x1c },
-	{ 0x00, 0x0c, 0x10, 0x20, 0x3c, 0x22, 0x22, 0x1c }
+const byte NumberFont[10][8] = {
+	{ 0x00, 0x1c, 0x22, 0x26, 0x2a, 0x32, 0x22, 0x1c },// '0'
+	{ 0x00, 0x1c, 0x08, 0x08, 0x08, 0x08, 0x0c, 0x08 },// '1'
+	{ 0x00, 0x3e, 0x02, 0x04, 0x18, 0x20, 0x22, 0x1c },// '2'
+	{ 0x00, 0x1c, 0x22, 0x20, 0x18, 0x20, 0x22, 0x1c },// '3'
+	{ 0x00, 0x10, 0x10, 0x3e, 0x12, 0x14, 0x18, 0x10 },// '4'
+	{ 0x00, 0x1c, 0x22, 0x20, 0x20, 0x1e, 0x02, 0x3e },// '5'
+	{ 0x00, 0x1c, 0x22, 0x22, 0x1e, 0x02, 0x04, 0x18 },// '6'
+	{ 0x00, 0x04, 0x04, 0x04, 0x08, 0x10, 0x20, 0x3e },// '7'
+	{ 0x00, 0x1c, 0x22, 0x22, 0x1c, 0x22, 0x22, 0x1c },// '8'
+	{ 0x00, 0x0c, 0x10, 0x20, 0x3c, 0x22, 0x22, 0x1c } // '9'
 };
 
 
@@ -171,8 +187,8 @@ struct PieceSpace {
 
 //Globals, is a mess. To do: tidy up and reduce glogal use if possible
 byte pageArray[8] = { 0 };
-byte scoreDisplayBuffer[8][6] = { { 0 }, { 0 } };
-byte nextBlockBuffer[8][2] = { { 0 }, { 0 } };
+byte scoreDisplayBuffer[8][6] = { 0 };
+byte nextBlockBuffer[8][2] = { 0 };
 bool optomizePageArray[8] = { 0 };
 byte blockColoum[10] = { 0 };
 byte tetrisScreen[14][25] = { { 1 } , { 1 } };
@@ -194,11 +210,11 @@ int dropDelay = 1000;
 int lastKey = 0;
 
 // I2C
-void OLEDCommand(byte command)
+void OLEDCmd(byte cmd)
 {
 	Wire.beginTransmission(OLED_ADDRESS);
 	Wire.write(OLED_COMMAND);
-	Wire.write(command);
+	Wire.write(cmd);
 	Wire.endTransmission();
 }
 
@@ -210,16 +226,14 @@ void OLEDData(byte data)
 	Wire.endTransmission();
 }
 
-int freq = 6000;
-int channel = 0;
-int resolution = 8;
-
 void setup()
 {
 	Serial.begin(9600);
 	while (!Serial);
-	ledcSetup(channel, freq, resolution);
-	ledcAttachPin(BUZZER_BUILTIN, channel);
+
+	// Channel 0, Frequency 6000HZ, Resolution 8
+	ledcSetup(0, 6000, 8);
+	ledcAttachPin(BUZZER_BUILTIN, 0);
 
 	Wire.begin();
 	Wire.setClock(400000);
@@ -234,17 +248,17 @@ void setup()
 	pinMode(DPAD_LEFT, INPUT);
 	pinMode(DPAD_RIGHT, INPUT);
 
-	OLEDCommand(OLED_DISPLAY_OFF);
+	OLEDCmd(OLED_DISPLAY_OFF);
 	delay(20);
-	OLEDCommand(OLED_DISPLAY_ON);
+	OLEDCmd(OLED_DISPLAY_ON);
 	delay(20);
-	OLEDCommand(OLED_NORMAL_DISPLAY);
+	OLEDCmd(OLED_NORMAL_DISPLAY);
 	delay(20);
-	OLEDCommand(0x8D);
+	OLEDCmd(0x8D);
 	delay(20);
-	OLEDCommand(0x14);
+	OLEDCmd(0x14);
 	delay(20);
-	OLEDCommand(OLED_NORMAL_DISPLAY);
+	OLEDCmd(OLED_NORMAL_DISPLAY);
 
 	fillTetrisScreen(0);
 
@@ -311,16 +325,16 @@ void drawTetrisTitle(bool blank = false)
 	byte byteval;
 
 	//set Vertical addressing mode and column - page start end
-	OLEDCommand(OLED_SET_ADDRESSING);
-	OLEDCommand(OLED_VERTICAL_ADDRESSING);
+	OLEDCmd(OLED_SET_ADDRESSING);
+	OLEDCmd(OLED_VERTICAL_ADDRESSING);
 
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand( 50 );                //Set column start
-	OLEDCommand( 66 );              //Set column end
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd( 50 );                //Set column start
+	OLEDCmd( 66 );              //Set column end
 
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand( 1 );               //Set page start
-	OLEDCommand( 5 );               //Set page end
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd( 1 );               //Set page start
+	OLEDCmd( 5 );               //Set page end
 
 	for (int r = 0; r <16; r++) {
 		for (int c = 4; c >=0; c--) {
@@ -333,13 +347,13 @@ void drawTetrisTitle(bool blank = false)
 		}
 	}
 
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand( 1 );                //Set column start
-	OLEDCommand( 42 );              //Set column end
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd( 1 );                //Set column start
+	OLEDCmd( 42 );              //Set column end
 
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand( 0 );               //Set page start
-	OLEDCommand( 7 );               //Set page end
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd( 0 );               //Set page start
+	OLEDCmd( 7 );               //Set page end
 
 	for (int r = 0; r <40; r++) {
 		for (int c = 7; c >=0; c--) {
@@ -352,13 +366,13 @@ void drawTetrisTitle(bool blank = false)
 		}
 	}
 
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand( 75 );                //Set column start
-	OLEDCommand( 116 );              //Set column end
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd( 75 );                //Set column start
+	OLEDCmd( 116 );              //Set column end
 
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand( 0 );               //Set page start
-	OLEDCommand( 7 );               //Set page end
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd( 0 );               //Set page start
+	OLEDCmd( 7 );               //Set page end
 
 	for (int r = 0; r <36; r++) {
 		for (int c = 7; c >=0; c--) {
@@ -519,14 +533,14 @@ void drawTetrisLine(byte x)
 	}
 
 	//set Vertical addressing mode and column - page start end
-	OLEDCommand(OLED_SET_ADDRESSING);
-	OLEDCommand(OLED_VERTICAL_ADDRESSING);
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand(x);
-	OLEDCommand(x + 4);
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand(pageStart);
-	OLEDCommand(pageEnd);
+	OLEDCmd(OLED_SET_ADDRESSING);
+	OLEDCmd(OLED_VERTICAL_ADDRESSING);
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd(x);
+	OLEDCmd(x + 4);
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd(pageStart);
+	OLEDCmd(pageEnd);
 
 	//send the array 5 times
 	for (int c = 0; c < 5; c++) {
@@ -846,15 +860,15 @@ void processCompletedLines()
 			drawTetrisScreen();
 
 			//tone(PIEZO_PIN, 1000, 50);
-			ledcWriteTone(channel, 1000); delay(50);ledcWrite(channel, 0);
+			ledcWriteTone(0, 1000); delay(50);ledcWrite(0, 0);
 			delay(60);
 
 			//tone(PIEZO_PIN, 2000, 50);
-			ledcWriteTone(channel, 2000); delay(50);ledcWrite(channel, 0);
+			ledcWriteTone(0, 2000); delay(50);ledcWrite(0, 0);
 			delay(50);
 
 			//tone(PIEZO_PIN, 500, 50);
-			ledcWriteTone(channel, 500); delay(50);ledcWrite(channel, 0);
+			ledcWriteTone(0, 500); delay(50);ledcWrite(0, 0);
 			delay(60);
 		}
 	}
@@ -866,9 +880,9 @@ void processCompletedLines()
 		case 3:   amountScored = 300 * (level + 1); break;
 		case 4:   amountScored = 1200 * (level + 1);
 			  //do 4 line affect
-			  OLEDCommand(OLED_INVERSE_DISPLAY);
+			  OLEDCmd(OLED_INVERSE_DISPLAY);
 			  delay(20);
-			  OLEDCommand(OLED_NORMAL_DISPLAY);
+			  OLEDCmd(OLED_NORMAL_DISPLAY);
 			  break;
 	}
 
@@ -886,21 +900,21 @@ void processCompletedLines()
 		level++;
 		levellineCount = 0;
 		//do level up affect
-		OLEDCommand(OLED_INVERSE_DISPLAY);
+		OLEDCmd(OLED_INVERSE_DISPLAY);
 		delay(100);
-		OLEDCommand(OLED_NORMAL_DISPLAY);
+		OLEDCmd(OLED_NORMAL_DISPLAY);
 		for (int i = 250; i < 2500; i += 100) {
 			//tone(PIEZO_PIN, i, 5);
-			ledcWriteTone(channel, i); delay(5);ledcWrite(channel, 0);
+			ledcWriteTone(0, i); delay(5);ledcWrite(0, 0);
 			delay(5);
 
 			//tone(PIEZO_PIN, i / 2, 5);
-			ledcWriteTone(channel, i/2); delay(5);ledcWrite(channel, 0);
+			ledcWriteTone(0, i/2); delay(5);ledcWrite(0, 0);
 			delay(10);
 		}
-		OLEDCommand(OLED_INVERSE_DISPLAY);
+		OLEDCmd(OLED_INVERSE_DISPLAY);
 		delay(100);
-		OLEDCommand(OLED_NORMAL_DISPLAY);
+		OLEDCmd(OLED_NORMAL_DISPLAY);
 	}
 
 	//make the 2's 1's
@@ -926,51 +940,6 @@ void tetrisScreenToSerial()
 	Serial.println();
 }
 
-///////////////////////////////////////
-/*
- * Get a KEY_CODE from a ADC channel
- * WITH DeBouncing function
- */
-static inline key getKey(int ADC_Pin)
-{
-	static volatile int a1 = 0;
-	static volatile int a2 = 0;
-	static volatile int a3 = 0;
-
-	int i = 0;
-
-	//Do 3 times sampling
-	//1st time
-	a1 = analogRead(ADC_Pin);
-	delay(10);
-
-	//2nd time
-	a2 = analogRead(ADC_Pin);
-	delay(10);
-
-	//3rd time
-	a3 = analogRead(ADC_Pin);
-
-	//Ignore bounces (DeBouncing)
-	if(abs(a1-a2) > 10 || abs(a1-a3) > 10 || abs(a2-a3) > 10){
-
-		return KEY_NOKEY;
-	}
-
-	//put average value on a1
-	a1 = (a1 + a2 + a3) / 3;
-
-	//Trying to matching a KEY
-	for(i = 0; i < ARRAY_SIZE(ADC_key_table); i++) {
-		if(a1 > ADC_key_table[i][0] && a1 < ADC_key_table[i][1]) {
-			//Matched a Key
-			return key(i);
-		}
-	}
-
-	//Didn't mach any Key
-	return KEY_NOKEY;
-}
 
 bool processKeys()
 {
@@ -991,133 +960,66 @@ bool processKeys()
 		drawPiece();
 		drawTetrisScreen();
 	}
-	delay(100);
+	delay(300);
 }
 
 
 void setScore(long score, bool blank)
 {
-	// this is a kludge. To do: create a proper system for rendering numbers and letters.
+	long first = (score % 10);
+	long second = ((score / 10) % 10);
+	long third = ((score / 100) % 10);
+	long fourth = ((score / 1000) % 10);
+	long fifth = ((score / 10000) % 10);
+	long sixth = ((score / 100000) % 10);
 
-
-	long ones = (score % 10);
-	long tens = ((score / 10) % 10);
-	long hundreds = ((score / 100) % 10);
-	long thousands = ((score / 1000) % 10);
-	long tenthousands = ((score / 10000) % 10);
-	long hunderedthousands = ((score / 100000) % 10);
-
-
-	//create the score in upper left part of the screen
-	byte font = 0;
-	char bytes_out[8];
-	memset(scoreDisplayBuffer, 0, sizeof scoreDisplayBuffer);
-
-	//****************score digit 6****************
-
-	for (int v = 0; v<8; v++) bytes_out[v] = pgm_read_byte(&NumberFont[hunderedthousands][v]);
-
-	//write the number to the Score buffer
+	/* ?00,000 */
 	for (int i = 0; i < 8; i++)
 	{
-		scoreDisplayBuffer[i][0] = scoreDisplayBuffer[i][0] | bytes_out[i] >> 1;
+		scoreDisplayBuffer[i][0] = NumberFont[sixth][i];
 	}
 
-	//****************score digit 5****************
-
-	for (int v = 0; v<8; v++) bytes_out[v] = pgm_read_byte(&NumberFont[tenthousands][v]);
-
-	//write the number to the Score buffer
+	/* 0?0,000 */
 	for (int i = 0; i < 8; i++)
 	{
-		scoreDisplayBuffer[i][0] = scoreDisplayBuffer[i][0] | (bytes_out[i] << 6);
+		scoreDisplayBuffer[i][1] = NumberFont[fifth][i];
 	}
 
-	//write the number to the Score buffer
+	/* 00?,000 */
 	for (int i = 0; i < 8; i++)
 	{
-		scoreDisplayBuffer[i][1] = scoreDisplayBuffer[i][1] | bytes_out[i] >> 1;
+		scoreDisplayBuffer[i][2] =NumberFont[fourth][i];
 	}
 
-	//****************score digit 4****************
-
-	for (int v = 0; v<8; v++) bytes_out[v] = pgm_read_byte(&NumberFont[thousands][v]);
-
-
-	//write the number to the Score buffer
+	/* 000,?00 */
 	for (int i = 0; i < 8; i++)
 	{
-		scoreDisplayBuffer[i][1] = scoreDisplayBuffer[i][1] | (bytes_out[i] << 6);
+		scoreDisplayBuffer[i][3] = NumberFont[third][i];
 	}
 
-	//write the number to the Score buffer
+	/* 000,0?0 */
 	for (int i = 0; i < 8; i++)
 	{
-		scoreDisplayBuffer[i][2] = scoreDisplayBuffer[i][2] | bytes_out[i] >> 1;
+		scoreDisplayBuffer[i][4] = NumberFont[second][i];
 	}
 
-	//****************score digit 3****************
-
-	for (int v = 0; v<8; v++) bytes_out[v] = pgm_read_byte(&NumberFont[hundreds][v]);
-
-	//write the number to the Score buffer
+	/* 000,00? */
 	for (int i = 0; i < 8; i++)
 	{
-		scoreDisplayBuffer[i][2] = scoreDisplayBuffer[i][2] | (bytes_out[i] << 6);
-	}
-
-	//write the number to the Score buffer
-	for (int i = 0; i < 8; i++)
-	{
-		scoreDisplayBuffer[i][3] = scoreDisplayBuffer[i][3] | bytes_out[i] >> 1;
-	}
-
-
-	//****************score digit 2****************
-
-	for (int v = 0; v<8; v++) bytes_out[v] = pgm_read_byte(&NumberFont[tens][v]);
-
-	//write the number to the Score buffer
-	for (int i = 0; i < 8; i++)
-	{
-		scoreDisplayBuffer[i][3] = scoreDisplayBuffer[i][3] | (bytes_out[i] << 6);
-	}
-
-	//write the number to the Score buffer
-	for (int i = 0; i < 8; i++)
-	{
-		scoreDisplayBuffer[i][4] = scoreDisplayBuffer[i][4] | bytes_out[i] >> 1;
-	}
-
-
-	//****************score digit 1****************
-
-	for (int v = 0; v<8; v++) bytes_out[v] = pgm_read_byte(&NumberFont[ones][v]);
-
-	//write the number to the Score buffer
-	for (int i = 0; i < 8; i++)
-	{
-		scoreDisplayBuffer[i][4] = scoreDisplayBuffer[i][4] | (bytes_out[i] << 6);
-	}
-
-	//write the number to the Score buffer
-	for (int i = 0; i < 8; i++)
-	{
-		scoreDisplayBuffer[i][5] = scoreDisplayBuffer[i][5] | bytes_out[i] >> 1;
-
+		scoreDisplayBuffer[i][5] = NumberFont[first][i];
 	}
 
 	//set Vertical addressing mode and column - page start end
-	OLEDCommand(OLED_SET_ADDRESSING);
-	OLEDCommand(OLED_VERTICAL_ADDRESSING);
+	OLEDCmd(OLED_SET_ADDRESSING);
+	OLEDCmd(OLED_VERTICAL_ADDRESSING);
 
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand(120);                 //Set column start
-	OLEDCommand(127);                 //Set column end
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd(120);                 //Set column start
+	OLEDCmd(127);                 //Set column end
 
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand(0);                  //Set page start
-	OLEDCommand(5);                  //Set page end
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd(0);                  //Set page start
+	OLEDCmd(5);                  //Set page end
 
 	for (int p = 0; p < 8; p++)
 	{
@@ -1209,16 +1111,16 @@ void setNextBlock(byte pieceNumber)
 	}
 
 	//set Vertical addressing mode and column - page start end
-	OLEDCommand(OLED_SET_ADDRESSING);
-	OLEDCommand(OLED_VERTICAL_ADDRESSING);
+	OLEDCmd(OLED_SET_ADDRESSING);
+	OLEDCmd(OLED_VERTICAL_ADDRESSING);
 
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand(120);                 //Set column start
-	OLEDCommand(127);                 //Set column end
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd(120);                 //Set column start
+	OLEDCmd(127);                 //Set column end
 
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand(6);                  //Set page start
-	OLEDCommand(7);                  //Set page end
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd(6);                  //Set page start
+	OLEDCmd(7);                  //Set page end
 
 	for (int p = 0; p < 8; p++) {
 		for (int c = 0; c < 2; c++) {
@@ -1232,16 +1134,16 @@ void drawBottom()
 {
 
 	//set Vertical addressing mode and column - page start end
-	OLEDCommand(OLED_SET_ADDRESSING);
-	OLEDCommand(OLED_VERTICAL_ADDRESSING);
+	OLEDCmd(OLED_SET_ADDRESSING);
+	OLEDCmd(OLED_VERTICAL_ADDRESSING);
 
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand(0);              //Set column start
-	OLEDCommand(0);              //Set column end
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd(0);              //Set column start
+	OLEDCmd(0);              //Set column end
 
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand(0);              //Set page start
-	OLEDCommand(7);              //Set page end
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd(0);              //Set page start
+	OLEDCmd(7);              //Set page end
 
 	for (int c = 0; c < 8; c++) {
 		OLEDData(255);
@@ -1253,16 +1155,16 @@ void drawSides()
 {
 
 	//set Vertical addressing mode and column - page start end
-	OLEDCommand(OLED_SET_ADDRESSING);
-	OLEDCommand(OLED_VERTICAL_ADDRESSING);
+	OLEDCmd(OLED_SET_ADDRESSING);
+	OLEDCmd(OLED_VERTICAL_ADDRESSING);
 
-	OLEDCommand(OLED_SET_COLUMN);
-	OLEDCommand(0);                //Set column start
-	OLEDCommand(127);              //Set column end
+	OLEDCmd(OLED_SET_COLUMN);
+	OLEDCmd(0);                //Set column start
+	OLEDCmd(127);              //Set column end
 
-	OLEDCommand(OLED_SET_PAGE);
-	OLEDCommand(0);               //Set page start
-	OLEDCommand(7);               //Set page end
+	OLEDCmd(OLED_SET_PAGE);
+	OLEDCmd(0);               //Set page start
+	OLEDCmd(7);               //Set page end
 
 	for (int r = 0; r < 128; r++) {
 		for (int c = 0; c < 8; c++) {
@@ -1290,11 +1192,9 @@ void loop()
 	drawSides();
 	drawBottom();
 
-	// tetrisScreenToSerial();
-
-	OLEDCommand(OLED_INVERSE_DISPLAY);
+	OLEDCmd(OLED_INVERSE_DISPLAY);
 	delay(200);
-	OLEDCommand(OLED_NORMAL_DISPLAY);
+	OLEDCmd(OLED_NORMAL_DISPLAY);
 
 	loadPiece(random(1, 8), 20, 5, true);
 	drawTetrisScreen();
@@ -1311,7 +1211,7 @@ void loop()
 	drawTetrisTitle(false);
 
 	TetrisTheme::start();
-	while(songOn) TetrisTheme::tetrisThemePlay();
+	while(bgmON) TetrisTheme::tetrisThemePlay();
 
 	drawTetrisTitle(true);
 	drawSides();
